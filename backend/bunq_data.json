@@ -1,0 +1,13 @@
+{
+  "daily_velocity": 15.0,
+  "goal_name": "Tokyo 2026",
+  "goal_date": "2026-08-04",
+  "category_averages": {
+    "clothing": 120.0,
+    "food": 25.0,
+    "transport": 41.50,
+    "entertainment": 35.99
+  },
+  "user_id": 3628706,
+  "account_id": 3620489
+}
