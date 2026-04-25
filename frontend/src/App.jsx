@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { analyze, getContext, getPerspective, classifyImage } from './api'
 
-const STAGES = { UPLOAD: 'upload', PRICE: 'price', RESULT: 'result' }
+const STAGES = { UPLOAD: 'upload', PRICE: 'price', RESULT: 'result', PLAN: 'plan', SKIP: 'skip', CONFIRM_OUTCOME: 'confirm_outcome', SKIP_OUTCOME: 'skip_outcome' }
 
 const FALLBACK_CTX = {
   goal: { name: 'Tokyo 2026', target_eur: 4500, current_eur: 1800, current_eta: '2026-08-04' },
@@ -164,7 +164,35 @@ export default function App() {
         {stage === STAGES.RESULT && card && (
           <ResultScreen
             card={card} vision={vision} previewUrl={previewUrl} onReset={reset}
+            onPlan={() => setStage(STAGES.PLAN)}
+            onSkip={() => setStage(STAGES.SKIP)}
           />
+        )}
+
+        {stage === STAGES.PLAN && card && (
+          <PlanScreen
+            item={vision?.item || card._category}
+            price={card._price}
+            onBack={() => setStage(STAGES.RESULT)}
+            onConfirm={() => setStage(STAGES.CONFIRM_OUTCOME)}
+          />
+        )}
+
+        {stage === STAGES.SKIP && card && (
+          <SkipScreen
+            item={vision?.item || card._category}
+            price={card._price}
+            onBack={() => setStage(STAGES.RESULT)}
+            onConfirm={() => setStage(STAGES.SKIP_OUTCOME)}
+          />
+        )}
+
+        {stage === STAGES.CONFIRM_OUTCOME && (
+          <ConfirmOutcomeScreen onDone={reset} />
+        )}
+
+        {stage === STAGES.SKIP_OUTCOME && (
+          <SkipOutcomeScreen onDone={reset} />
         )}
       </div>
 
@@ -337,7 +365,7 @@ function PriceScreen({
   )
 }
 
-function ResultScreen({ card, vision, previewUrl, onReset }) {
+function ResultScreen({ card, vision, previewUrl, onReset, onPlan, onSkip }) {
   return (
     <div className="flex flex-col gap-4 animate-fadeUp">
       <div className="relative rounded-2xl overflow-hidden bg-bunq-surface border border-white/[0.06] shadow-card">
@@ -369,16 +397,16 @@ function ResultScreen({ card, vision, previewUrl, onReset }) {
 
       <div className="flex gap-2 mt-1">
         <button
-          onClick={onReset}
+          onClick={onSkip}
           className="rounded-2xl px-5 py-3.5 bg-transparent border border-white/10 text-white/80 text-[14px] font-medium hover:bg-white/5 transition"
         >
-          New item
+          Not now
         </button>
         <button
-          onClick={onReset}
+          onClick={onPlan}
           className="flex-1 rounded-2xl bg-bunq-green hover:bg-bunq-greenHover active:scale-[0.99] text-black font-semibold text-[15px] py-3.5 transition"
         >
-          Plan it · or skip
+          Plan it
         </button>
       </div>
     </div>
@@ -392,6 +420,171 @@ function Stat({ label, value, accent }) {
       <span className={`text-[15px] leading-snug ${accent === 'green' ? 'text-bunq-green' : 'text-white/90'}`}>
         {value || '—'}
       </span>
+    </div>
+  )
+}
+
+function BackArrow() {
+  return (
+    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  )
+}
+
+function PlanScreen({ item, price, onBack, onConfirm }) {
+  return (
+    <div className="flex flex-col gap-4 animate-fadeUp">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1.5 text-white/50 text-[13px] hover:text-white/80 transition self-start"
+      >
+        <BackArrow /> Back
+      </button>
+
+      <div>
+        <h2 className="text-[26px] font-bold tracking-tight leading-tight">Plan locked in</h2>
+        <p className="mt-1 text-[14px] text-white/50">Tokyo 2026 stays on Aug 4.</p>
+      </div>
+
+      <div className="bg-bunq-surface rounded-2xl p-5 border border-white/[0.06] shadow-card">
+        <div className="text-[11px] uppercase tracking-[0.14em] text-white/40">Your purchase</div>
+        <div className="mt-3 flex items-baseline justify-between gap-3">
+          <span className="text-[15px] text-white/90 font-medium leading-snug">{item}</span>
+          <span className="text-[16px] font-bold text-white tabular-nums shrink-0">{formatPrice(price)}</span>
+        </div>
+        <div className="mt-2 text-[12px] text-white/40">Captured today</div>
+      </div>
+
+      <div className="bg-bunq-surface rounded-2xl p-5 border border-white/[0.06] shadow-card">
+        <div className="text-[11px] uppercase tracking-[0.14em] text-white/40">Auto-drafted transfers</div>
+        <div className="mt-3 flex flex-col divide-y divide-white/[0.04]">
+          {[
+            { label: 'May 31 · From spending → Tokyo', amount: '€100' },
+            { label: 'June 30 · From spending → Tokyo', amount: '€100' },
+            { label: 'July 31 · From spending → Tokyo', amount: '€100' },
+          ].map((row) => (
+            <div key={row.label} className="flex items-center justify-between py-2.5 gap-3">
+              <span className="text-[13.5px] text-white/75">{row.label} · {row.amount}</span>
+              <button className="text-[12px] text-bunq-green shrink-0 hover:opacity-75 transition">Edit</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-bunq-surface rounded-2xl p-5 border border-white/[0.06] shadow-card">
+        <div className="text-[11px] uppercase tracking-[0.14em] text-white/40">Outcome</div>
+        <div className="mt-3 flex flex-col gap-2">
+          <span className="text-[14px] text-white/80">Tokyo arrival: Aug 4 (unchanged)</span>
+          <span className="text-[14px] text-white/80">Total saved into Tokyo from this plan: €300</span>
+        </div>
+      </div>
+
+      <button
+        onClick={onConfirm}
+        className="w-full rounded-2xl bg-bunq-green hover:bg-bunq-greenHover active:scale-[0.99] text-black font-semibold text-[15px] py-3.5 transition"
+      >
+        Confirm plan
+      </button>
+      <p className="text-center text-[12px] text-white/30 -mt-1">Drafts only. We'll never move money without you.</p>
+    </div>
+  )
+}
+
+function SkipScreen({ item, price, onBack, onConfirm }) {
+  const weekTotal = 45 + 30 + Number(price || 0)
+  return (
+    <div className="flex flex-col gap-4 animate-fadeUp">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1.5 text-white/50 text-[13px] hover:text-white/80 transition self-start"
+      >
+        <BackArrow /> Back
+      </button>
+
+      <div>
+        <h2 className="text-[26px] font-bold tracking-tight leading-tight">Logged.</h2>
+        <p className="mt-1 text-[14px] text-white/50">Tokyo 2026 still on Aug 4.</p>
+      </div>
+
+      <div className="bg-bunq-surface rounded-2xl p-5 border border-white/[0.06] shadow-card">
+        <div className="text-[11px] uppercase tracking-[0.14em] text-white/40">Skipped today</div>
+        <div className="mt-3 text-[15px] text-white/90">
+          {item} · {formatPrice(price)}
+        </div>
+        <div className="mt-2 text-[12px] text-white/40">Saved · 0.5 days closer to Tokyo</div>
+      </div>
+
+      <div className="bg-bunq-surface rounded-2xl p-5 border border-white/[0.06] shadow-card">
+        <div className="flex items-center gap-2.5">
+          <span className="text-[11px] uppercase tracking-[0.14em] text-white/40">Recent skips</span>
+          <span className="text-[11px] bg-bunq-green/15 text-bunq-green px-2 py-0.5 rounded-full font-semibold tabular-nums">3</span>
+        </div>
+        <div className="mt-3 flex flex-col divide-y divide-white/[0.04]">
+          {[
+            { day: 'Tue', label: 'Uber Eats dinner', amount: '€45' },
+            { day: 'Sun', label: 'Takeout', amount: '€30' },
+            { day: 'Today', label: item, amount: formatPrice(price) },
+          ].map((row) => (
+            <div key={row.day + row.label} className="flex items-center justify-between py-2.5 gap-3">
+              <span className="text-[13.5px] text-white/60">{row.day} · {row.label}</span>
+              <span className="text-[13.5px] text-white/80 tabular-nums shrink-0">{row.amount}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 pt-3 border-t border-white/[0.06] text-[13px] text-white/50">
+          Total saved this week: €{weekTotal} · ~5 days closer to Tokyo
+        </div>
+      </div>
+
+      <button
+        onClick={onConfirm}
+        className="w-full rounded-2xl bg-transparent border border-white/20 text-white/80 font-medium text-[14px] py-3.5 hover:bg-white/5 transition"
+      >
+        View all activity
+      </button>
+      <p className="text-center text-[12px] text-white/30 -mt-1">Your call. Always.</p>
+    </div>
+  )
+}
+
+function ConfirmOutcomeScreen({ onDone }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 1500)
+    return () => clearTimeout(t)
+  }, [onDone])
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-5 py-24 animate-fadeUp">
+      <div className="w-24 h-24 rounded-full bg-bunq-green flex items-center justify-center shadow-[0_0_40px_#00C85355]">
+        <svg viewBox="0 0 24 24" className="w-12 h-12" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </div>
+      <div className="text-center">
+        <h2 className="text-[26px] font-bold tracking-tight">Plan locked in</h2>
+        <p className="mt-2 text-[14px] text-white/50">Tokyo 2026 stays on Aug 4</p>
+      </div>
+    </div>
+  )
+}
+
+function SkipOutcomeScreen({ onDone }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 1500)
+    return () => clearTimeout(t)
+  }, [onDone])
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-5 py-24 animate-fadeUp">
+      <span className="px-3 py-1 rounded-full bg-bunq-green/15 text-bunq-green text-[12px] font-semibold tracking-wide">
+        3-day streak
+      </span>
+      <div className="text-center">
+        <h2 className="text-[26px] font-bold tracking-tight">Logged.</h2>
+        <p className="mt-2 text-[15px] text-white/80">You've saved €82 this week</p>
+        <p className="mt-1 text-[13px] text-white/40">~5 days closer to Tokyo</p>
+      </div>
     </div>
   )
 }
