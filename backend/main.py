@@ -15,6 +15,7 @@ ledger.py from the underlying transactions.
 from __future__ import annotations
 
 import os
+from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -89,8 +90,8 @@ class ClassifyOut(BaseModel):
     item: str
     category: str
     confidence: str
-    brief_description: str | None = None
-    source: str | None = None
+    brief_description: Optional[str] = None
+    source: Optional[str] = None
 
 
 @app.post("/classify", response_model=ClassifyOut)
@@ -105,7 +106,7 @@ async def classify(image: UploadFile = File(...)):
 class PerspectiveIn(BaseModel):
     price: float = Field(..., gt=0)
     category: str
-    item: str | None = None
+    item: Optional[str] = None
 
 
 @app.post("/perspective")
