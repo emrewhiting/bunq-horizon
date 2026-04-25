@@ -1,13 +1,37 @@
 {
-  "daily_velocity": 15.0,
-  "goal_name": "Tokyo 2026",
-  "goal_date": "2026-08-04",
-  "category_averages": {
-    "clothing": 120.0,
-    "food": 25.0,
-    "transport": 41.50,
-    "entertainment": 35.99
+  "goal": {
+    "name": "Tokyo 2026",
+    "target_eur": 3000.0,
+    "current_eur": 1800.0,
+    "target_date": "2026-08-04"
   },
   "user_id": 0,
-  "account_id": 0
+  "account_id": 0,
+  "starting_balance_eur": 500.0,
+  "transactions": [
+    {"date": "2026-04-22", "amount": 500.0,  "category": "income",        "description": "Sugar Daddy top-up"},
+    {"date": "2026-04-20", "amount": 1500.0, "category": "income",        "description": "Monthly stipend"},
+    {"date": "2026-04-19", "amount": -85.0,  "category": "clothing",      "description": "Zara jacket"},
+    {"date": "2026-04-17", "amount": -140.0, "category": "clothing",      "description": "Nike sneakers"},
+    {"date": "2026-04-15", "amount": -135.0, "category": "clothing",      "description": "H&M coat"},
+    {"date": "2026-04-14", "amount": -22.5,  "category": "groceries",     "description": "Albert Heijn groceries"},
+    {"date": "2026-04-12", "amount": -28.0,  "category": "groceries",     "description": "Jumbo groceries"},
+    {"date": "2026-04-11", "amount": -19.5,  "category": "food_dining",   "description": "Lunch cafe"},
+    {"date": "2026-04-09", "amount": -31.0,  "category": "food_dining",   "description": "Takeaway dinner"},
+    {"date": "2026-04-08", "amount": -38.0,  "category": "transport",     "description": "NS train monthly"},
+    {"date": "2026-04-06", "amount": -45.0,  "category": "transport",     "description": "Uber rides"},
+    {"date": "2026-04-04", "amount": -29.99, "category": "entertainment", "description": "Netflix + Spotify"},
+    {"date": "2026-04-02", "amount": -42.0,  "category": "entertainment", "description": "Cinema + drinks"}
+  ],
+  "carbon_factors_kg_per_eur": {
+    "clothing": 0.40,
+    "groceries": 0.18,
+    "food_dining": 0.22,
+    "transport": 0.45,
+    "entertainment": 0.10,
+    "electronics": 0.55,
+    "home": 0.30,
+    "beauty": 0.25,
+    "other": 0.20
+  }
 }

@@ -1,0 +1,20 @@
+# One-click Render config for the backend.
+# Push to GitHub → New + → Blueprint → pick this repo.
+
+services:
+  - type: web
+    name: bunq-horizon-api
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-4-5-20250929
+      - key: BUNQ_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.9
