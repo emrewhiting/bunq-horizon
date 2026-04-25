@@ -31,3 +31,4 @@ vite.config.ts.timestamp-*.mjs
 # IDEs
 .vscode/
 .idea/
+.env
