@@ -58,7 +58,6 @@ export default function App() {
   const [file, setFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
   const [vision, setVision] = useState(null)
-  const [overrideCategory, setOverrideCategory] = useState(null)
   const [price, setPrice] = useState('')
   const [card, setCard] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -84,7 +83,9 @@ export default function App() {
     return () => clearTimeout(t)
   }, [error])
 
-  const activeCategory = overrideCategory || vision?.category || 'other'
+  // Category always comes from the vision call. No manual override —
+  // the whole point of the product is that the AI does the classification.
+  const activeCategory = vision?.category || 'other'
 
   function handleFile(f) {
     if (!f) return
@@ -135,7 +136,7 @@ export default function App() {
 
   function reset() {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
-    setFile(null); setPreviewUrl(null); setVision(null); setOverrideCategory(null)
+    setFile(null); setPreviewUrl(null); setVision(null)
     setPrice(''); setCard(null); setError(null); setStage(STAGES.UPLOAD)
   }
 
@@ -154,8 +155,7 @@ export default function App() {
         {stage === STAGES.PRICE && (
           <PriceScreen
             previewUrl={previewUrl} vision={vision}
-            categories={ctx.categories} activeCategory={activeCategory}
-            onPickCategory={setOverrideCategory}
+            activeCategory={activeCategory}
             price={price} setPrice={setPrice}
             onBack={reset} onSubmit={submitPrice} loading={loading}
           />
@@ -271,15 +271,15 @@ function UploadScreen({ drag, setDrag, onFile, fileInputRef, cameraInputRef }) {
 }
 
 function PriceScreen({
-  previewUrl, vision, categories, activeCategory,
-  onPickCategory, price, setPrice, onBack, onSubmit, loading,
+  previewUrl, vision, activeCategory, price, setPrice, onBack, onSubmit, loading,
 }) {
+  const aiReady = !!vision
   return (
     <div className="flex flex-col gap-4 animate-fadeUp">
       <div className="relative rounded-2xl overflow-hidden bg-bunq-surface border border-white/[0.06] shadow-card">
         {previewUrl && <img src={previewUrl} alt="captured" className="w-full block max-h-[260px] object-cover" />}
         <div className="absolute top-3 left-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur border border-white/10 text-[12px] font-medium">
-          {vision ? (
+          {aiReady ? (
             <>
               <CategoryIcon name={vision.category} className="w-3.5 h-3.5 text-white/80" />
               <span className="text-white/90 capitalize truncate max-w-[220px]">{vision.item || 'item'}</span>
@@ -302,25 +302,20 @@ function PriceScreen({
           />
         </div>
 
-        <div className="mt-6 text-[11px] uppercase tracking-[0.14em] text-white/40">Category</div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {(categories || []).map((c) => {
-            const active = c === activeCategory
-            return (
-              <button
-                key={c}
-                onClick={() => onPickCategory(c)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] font-medium border transition ${
-                  active
-                    ? 'bg-bunq-green/15 border-bunq-green/50 text-bunq-green'
-                    : 'bg-white/[0.03] border-white/10 text-white/60 hover:text-white/90 hover:border-white/20'
-                }`}
-              >
-                <CategoryIcon name={c} className="w-3.5 h-3.5" />
-                {CAT_LABELS[c] || c}
-              </button>
-            )
-          })}
+        <div className="mt-6 flex items-center gap-2 text-[12px] text-white/50">
+          {aiReady ? (
+            <>
+              <CategoryIcon name={activeCategory} className="w-3.5 h-3.5 text-white/60" />
+              <span>
+                AI categorized this as{' '}
+                <span className="text-white/90 capitalize font-medium">
+                  {CAT_LABELS[activeCategory] || activeCategory}
+                </span>
+              </span>
+            </>
+          ) : (
+            <><Spinner size={10} /> <span>AI is categorizing…</span></>
+          )}
         </div>
       </div>
 
