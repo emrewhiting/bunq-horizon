@@ -1,8 +1,5 @@
-"""Pull transactions and derive the numbers the rest of the app uses.
-
-Velocity, category baselines, goal ETA, recent patterns — all computed
-from the underlying ledger (cached JSON, or live bunq sandbox if reachable).
-"""
+# everything number-y the app needs (velocity, baselines, eta, patterns)
+# is derived here from the same ledger - either live bunq or cached json
 
 from __future__ import annotations
 
@@ -16,7 +13,7 @@ from typing import Iterable
 
 DATA_PATH = Path(__file__).parent / "bunq_data.json"
 
-WINDOW_DAYS = 30  # rolling window for velocity and pattern detection
+WINDOW_DAYS = 30  # rolling window for velocity + patterns
 
 
 def _load() -> dict:
@@ -29,8 +26,7 @@ def _parse_date(s: str) -> date:
 
 
 def _try_live_transactions() -> list[dict] | None:
-    """Pull payments from the bunq sandbox. Returns None on any failure so
-    the caller can fall back to the cached snapshot."""
+    # pull from sandbox if we have a key, else None and the caller falls back
     api_key = os.getenv("BUNQ_API_KEY", "").strip()
     if not api_key:
         return None
@@ -47,7 +43,7 @@ def _try_live_transactions() -> list[dict] | None:
             out.append({
                 "date": (p.get("created") or "")[:10],
                 "amount": p["amount"],
-                # bunq payments aren't categorised; infer from description.
+                # bunq doesn't categorise payments, infer from description
                 "category": _infer_category(p.get("description", "")),
                 "description": p.get("description", ""),
             })
@@ -79,9 +75,7 @@ def _infer_category(description: str) -> str:
 
 
 def load_ledger() -> dict:
-    """Return the merged ledger. Live data when available, cache otherwise.
-    Always includes goal, transactions, carbon_factors_kg_per_eur.
-    """
+    # live if we can, cached otherwise. shape stays the same either way
     data = _load()
     live = _try_live_transactions()
     if live:
@@ -99,13 +93,10 @@ def _filter_recent(txns: Iterable[dict], window: int = WINDOW_DAYS) -> list[dict
 
 
 def daily_velocity(txns: list[dict] | None = None) -> dict:
-    """Daily savings velocity: (income - expenses) / window.
-    Returns the number plus the components that produced it so the math
-    can be displayed.
-    """
+    # (income - expenses) / window. components included so the UI can show the math
     if txns is None:
         txns = load_ledger()["transactions"]
-    recent = _filter_recent(txns) or txns  # if the window is too narrow, use everything
+    recent = _filter_recent(txns) or txns  # short history? use everything
     inflows  = sum(t["amount"]  for t in recent if t["amount"] > 0)
     outflows = sum(-t["amount"] for t in recent if t["amount"] < 0)
     days = max(1, WINDOW_DAYS)
@@ -119,10 +110,7 @@ def daily_velocity(txns: list[dict] | None = None) -> dict:
 
 
 def category_baselines(txns: list[dict] | None = None) -> dict[str, float]:
-    """Average single-purchase amount per category, in EUR.
-    Computed across the full ledger (not just the rolling window) so the
-    baseline doesn't jitter on short histories.
-    """
+    # avg single-purchase per category in eur. uses full ledger so it doesn't jitter
     if txns is None:
         txns = load_ledger()["transactions"]
     by_cat: dict[str, list[float]] = defaultdict(list)
@@ -134,9 +122,8 @@ def category_baselines(txns: list[dict] | None = None) -> dict[str, float]:
 
 
 def recent_purchases(category: str, txns: list[dict] | None = None) -> dict:
-    """Activity in a category: count this window, total spent, days since
-    the last purchase. Used to flag frequency or long gaps.
-    """
+    # what's been happening in this category lately. drives the
+    # "you've already bought 3 of these this month" type messages
     if txns is None:
         txns = load_ledger()["transactions"]
     recent = _filter_recent(txns)
@@ -153,9 +140,7 @@ def recent_purchases(category: str, txns: list[dict] | None = None) -> dict:
 
 
 def goal_status(txns: list[dict] | None = None) -> dict:
-    """Goal info plus a derived ETA based on the current velocity:
-    ETA = today + (target - current) / velocity_per_day.
-    """
+    # goal + a derived eta: today + (target - current) / velocity
     data = load_ledger()
     g = data["goal"]
     v = daily_velocity(txns or data["transactions"])["daily_velocity_eur"]
@@ -163,7 +148,7 @@ def goal_status(txns: list[dict] | None = None) -> dict:
     if v > 0:
         eta = date.today() + timedelta(days=round(remaining / v))
     else:
-        eta = _parse_date(g["target_date"])  # no velocity, fall back to user's stated date
+        eta = _parse_date(g["target_date"])  # no velocity, just use whatever date the user set
     return {
         "name": g["name"],
         "target_eur": g["target_eur"],
@@ -175,7 +160,7 @@ def goal_status(txns: list[dict] | None = None) -> dict:
 
 
 def forecast_goal_impact(price_eur: float, txns: list[dict] | None = None) -> dict:
-    """How a purchase of `price_eur` shifts the goal ETA."""
+    # how this purchase shifts the goal eta
     g = goal_status(txns)
     v = daily_velocity(txns)["daily_velocity_eur"]
     delay = round(price_eur / v) if v > 0 else 0
@@ -194,7 +179,7 @@ def carbon_factors() -> dict[str, float]:
 
 
 def carbon_for_purchase(price_eur: float, category: str) -> dict:
-    """kg CO2e for a hypothetical purchase plus a comparison the user can picture."""
+    # kg co2e + a comparison people can actually picture
     factors = carbon_factors()
     factor = factors.get(category, factors.get("other", 0.20))
     kg = round(price_eur * factor, 2)
@@ -208,7 +193,7 @@ def carbon_for_purchase(price_eur: float, category: str) -> dict:
         years = kg / 21.0
         eq = (f"≈ {round(years * 12)} months of a tree's offset"
               if years < 2
-              else f"≈ {years:.1f} years of a mature tree's CO\u2082 offset")
+              else f"≈ {years:.1f} years of a mature tree's CO₂ offset")
     return {"kg_co2e": kg, "equivalent": eq, "factor_kg_per_eur": factor}
 
 

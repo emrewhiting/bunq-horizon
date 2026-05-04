@@ -1,17 +1,4 @@
-"""bunq Horizon — backend.
-
-Routes:
-  GET  /health      liveness + flags
-  GET  /context     goal, velocity, category baselines, supported categories
-  GET  /balance     current balance + recent payments
-  POST /classify    image -> {item, category, confidence}
-  POST /perspective {price, category, item?} -> Perspective Card
-  POST /analyze     image + price -> {vision, card}    (main path)
-
-Every figure (velocity, baselines, ETAs, ratios, carbon) is computed in
-ledger.py from the underlying transactions.
-"""
-
+# bunq Horizon backend. /analyze is the main path, the rest are pieces of it.
 from __future__ import annotations
 
 import os
@@ -30,6 +17,7 @@ load_dotenv()
 
 app = FastAPI(title="bunq Horizon", version="1.0.0")
 
+# wide-open CORS, fine for the demo
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -102,7 +90,7 @@ async def classify(image: UploadFile = File(...)):
     return analyze_image(payload, image.content_type or "image/jpeg", image.filename)
 
 
-# Price-only path — used when the frontend already has a classification.
+# used when the frontend already has a classification and just wants the card
 class PerspectiveIn(BaseModel):
     price: float = Field(..., gt=0)
     category: str
@@ -116,7 +104,7 @@ def perspective(req: PerspectiveIn):
     return build_card_directly(item, cat, req.price)
 
 
-# Main path: image + price -> {vision, card}
+# canned response for the case where vision is acting up
 DEMO_CARD = {
     "vision": {
         "item": "Carhartt WIP Detroit Jacket",
@@ -152,7 +140,7 @@ async def analyze(image: UploadFile = File(...), price: float = Form(...)):
     try:
         card = run_agent(item, category, price)
     except Exception as e:
-        print(f"[analyze] agent failed, using direct builder: {e}")
+        print(f"[analyze] agent died, falling back: {e}")
         card = build_card_directly(item, category, price)
 
     return {"vision": vision, "card": card}

@@ -1,11 +1,5 @@
-"""bunq sandbox client.
-
-Three-step handshake: installation -> device-server -> session-server.
-Then signed POST/GET, plus a couple of helpers for accounts and payments.
-
-Public methods log and swallow errors so the caller can fall back to the
-cached snapshot. Reference: https://doc.bunq.com/tutorials/your-first-payment
-"""
+# bunq sandbox client. handshake is installation -> device-server -> session-server,
+# then signed GET/POST. docs: https://doc.bunq.com/tutorials/your-first-payment
 
 from __future__ import annotations
 
@@ -29,7 +23,7 @@ PROD_BASE = "https://api.bunq.com/v1"
 
 
 def _generate_or_load_keypair(key_dir: Path) -> tuple[str, str]:
-    """Return (private_pem, public_pem). Generates and persists on first call."""
+    # generates the keypair on first run, reuses it after
     key_dir.mkdir(parents=True, exist_ok=True)
     priv_path = key_dir / "private_key.pem"
     pub_path = key_dir / "public_key.pem"
@@ -178,13 +172,12 @@ class BunqClient:
                     return
 
     def authenticate(self) -> "BunqClient":
-        """Run the handshake. Re-creates the session on every call."""
+        # full handshake. session is recreated every call, device-server only on first run
         self._create_installation()
         try:
             self._create_device_server()
         except Exception:
-            # device-server may fail if the key is already registered;
-            # session-server will surface a real failure.
+            # device-server fails if already registered for this key, that's fine
             pass
         self._create_session()
         return self
@@ -197,7 +190,7 @@ class BunqClient:
         self._ensure_session()
         headers = self._base_headers()
         headers["X-Bunq-Client-Authentication"] = self.session_token
-        # Some endpoints check the signature on an empty body too.
+        # some endpoints want a signature even on empty bodies
         headers["X-Bunq-Client-Signature"] = _sign("", self.private_pem)
         r = requests.get(f"{self.base_url}/{path}", headers=headers, timeout=20)
         r.raise_for_status()
@@ -222,7 +215,7 @@ class BunqClient:
             for key in ("MonetaryAccountBank", "MonetaryAccountSavings"):
                 if key in item and item[key].get("status") == "ACTIVE":
                     return item[key]["id"]
-        # Use whatever account we see first if no active one was found.
+        # nothing active? grab whatever shows up first
         for item in data.get("Response", []):
             for v in item.values():
                 if isinstance(v, dict) and "id" in v:

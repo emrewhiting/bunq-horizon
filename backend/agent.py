@@ -1,9 +1,7 @@
-"""Turns (item, category, price) into a Perspective Card.
-
-The agent loop asks Claude what tool to run, runs it, feeds the result back,
-then expects a JSON card. If the API call fails or no key is set,
-build_card_directly() produces the same shape from ledger.py alone.
-"""
+# takes (item, category, price) and spits out a Perspective Card.
+# claude calls the tools below to grab numbers from ledger.py, then returns
+# the final json. if there's no api key or the call dies, build_card_directly()
+# produces the same shape from ledger alone.
 
 from __future__ import annotations
 
@@ -20,8 +18,8 @@ load_dotenv()
 MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 
 
-# Tools the agent can call. Each one is a thin wrapper around ledger.py so
-# every number the agent uses is derived, not hardcoded.
+# tools the agent can call. each one is a thin wrapper around ledger.py
+# so the agent never gets to make up numbers
 
 def _tool_velocity():
     return ledger.daily_velocity()
@@ -36,7 +34,7 @@ def _tool_baseline(category: str):
                 "note": "no prior purchases in this category"}
     return {"category": category, "average_per_purchase_eur": base}
 
-NO_HISTORY_DAYS = 365  # anything older counts as no real history
+NO_HISTORY_DAYS = 365  # past this it's basically a fresh start
 
 
 def _tool_pattern(category: str):
@@ -161,7 +159,7 @@ def _extract_json(text: str) -> dict:
 
 
 def run_agent(item: str, category: str, price: float) -> dict:
-    """Run the tool-use loop until Claude returns the final card."""
+    # tool-use loop, capped at 8 iterations so it can't run away
     if not os.getenv("ANTHROPIC_API_KEY", "").strip():
         return build_card_directly(item, category, price)
 
@@ -219,8 +217,8 @@ def run_agent(item: str, category: str, price: float) -> dict:
     return build_card_directly(item, category, price)
 
 
-# Direct (non-LLM) card builder. Same shape as the agent's output, used as
-# the fallback when no API key is configured or the agent call fails.
+# non-LLM fallback. same output shape as the agent so the frontend doesn't care
+# which one ran
 
 def _format_short(d: str) -> str:
     return date.fromisoformat(d).strftime("%b %-d") if d else ""

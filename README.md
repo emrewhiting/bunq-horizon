@@ -57,7 +57,7 @@ cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# edit .env — paste your ANTHROPIC_API_KEY
+# put your own ANTHROPIC_API_KEY in .env (BUNQ_API_KEY is optional)
 uvicorn main:app --reload --port 8000
 ```
 
@@ -149,13 +149,13 @@ All endpoints are CORS-open for the demo.
 
 ## Fallback ladder (so the demo never crashes)
 
-The brief says "if anything breaks, hardcode everything." Here's the fallback ladder:
+Three layers, each picks up if the one above fails:
 
 1. **Claude vision fails or no API key** → keyword classifier on filename
 2. **bunq sandbox unreachable** → cached `bunq_data.json` snapshot
 3. **Backend unreachable from frontend** → frontend computes perspective locally using the same formulas
 
-Result: even with no internet, the demo still runs end-to-end (you'd just lose AI item recognition).
+Even fully offline the flow still runs end-to-end, you just lose the AI item recognition.
 
 ## Demo script (2-3 min)
 
@@ -169,5 +169,15 @@ Result: even with no internet, the demo still runs end-to-end (you'd just lose A
 ## Credits
 
 - bunq sandbox: [doc.bunq.com](https://doc.bunq.com/)
-- API client lifted from [PSD2 reference implementation](https://github.com/two-trick-pony-NL/PSD2-Implementation-for-bunq-API)
-- Carbon factors: WWF + EU Exiobase order-of-magnitude ranges
+- bunq API client adapted from [this PSD2 reference implementation](https://github.com/two-trick-pony-NL/PSD2-Implementation-for-bunq-API)
+- Carbon factors: WWF + EU Exiobase ranges
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
+
+## Notes
+
+Personal submission for bunq Hackathon 7.0. The cached `bunq_data.json`
+is fully synthetic (zeroed IDs, made-up transactions). Bring your own
+keys if you want to run it.

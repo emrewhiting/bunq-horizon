@@ -1,5 +1,4 @@
-// Tiny API client for the Horizon backend.
-// Set VITE_API_URL in .env (production) — defaults to localhost for dev.
+// thin wrapper around the backend. set VITE_API_URL for prod, localhost otherwise.
 
 const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '')
 

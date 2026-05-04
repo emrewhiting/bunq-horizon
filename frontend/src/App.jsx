@@ -17,7 +17,7 @@ const CAT_LABELS = {
 }
 
 function CategoryIcon({ name, className = 'w-4 h-4' }) {
-  // simple line glyphs per category — keeps the look clean, no emoji
+  // line glyphs per category, no emoji
   const stroke = 'currentColor'
   switch (name) {
     case 'clothing':
@@ -83,8 +83,8 @@ export default function App() {
     return () => clearTimeout(t)
   }, [error])
 
-  // Category always comes from the vision call. No manual override —
-  // the whole point of the product is that the AI does the classification.
+  // category always comes from vision, no manual override.
+  // whole point is that the AI picks it.
   const activeCategory = vision?.category || 'other'
 
   function handleFile(f) {
@@ -602,8 +602,8 @@ function Spinner({ size = 16, dark = false }) {
   )
 }
 
-// Last-resort fallback if backend is fully unreachable. Mirrors the
-// Perspective Card shape so the result screen renders the same way.
+// last-ditch fallback when the backend is dead. mirrors the card shape
+// so the result screen doesn't care.
 function localFallbackCard(price, category, item, ctx) {
   const v = ctx.velocity?.daily_velocity_eur || 15
   const baselines = ctx.baselines || {}

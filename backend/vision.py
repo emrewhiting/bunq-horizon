@@ -1,4 +1,4 @@
-"""Image -> {item, category, confidence}. One call, one job."""
+# image -> {item, category, confidence}. one call, one job.
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ load_dotenv()
 
 MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6")
 
-# Must stay in sync with carbon_factors_kg_per_eur in bunq_data.json.
+# keep in sync with carbon_factors_kg_per_eur in bunq_data.json
 CATEGORIES = [
     "clothing", "electronics", "food_dining", "groceries",
     "transport", "entertainment", "beauty", "home", "other",
@@ -42,9 +42,8 @@ def _strip_fences(text: str) -> str:
 
 
 def _keyword_fallback(filename: str | None) -> dict:
-    """Used when no Anthropic key is set. Marks itself as source=fallback
-    so the frontend can show that the AI didn't actually run.
-    """
+    # used when there's no anthropic key. tags itself as source=fallback
+    # so the UI can show that vision didn't actually run
     name = (filename or "").lower()
     pairs = [
         ("jacket",  "clothing"), ("coat",    "clothing"),
@@ -74,9 +73,8 @@ def _keyword_fallback(filename: str | None) -> dict:
 
 def analyze_image(image_bytes: bytes, mime: str = "image/jpeg",
                   filename: str | None = None) -> dict:
-    """Returns {item, category, confidence, brief_description, source}.
-    Falls back to a filename-keyword classifier without an API key.
-    """
+    # returns {item, category, confidence, brief_description, source}
+    # without an api key it falls back to filename-keyword matching
     if not os.getenv("ANTHROPIC_API_KEY", "").strip():
         return _keyword_fallback(filename)
 
