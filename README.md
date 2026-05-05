@@ -2,141 +2,77 @@
 
 > Snap a photo of any item. See how many days it pushes back your savings goal — and what it costs the planet.
 
-A multimodal AI feature for bunq that turns abstract financial decisions into concrete future-self ones. Built for the bunq Hackathon 7.0.
+A multimodal AI feature for bunq that turns abstract financial decisions into concrete future-self ones. Submitted to bunq Hackathon 7.0.
 
-## What it does
+**Example:** Photo of a jacket → type `€300` → *"Pushes your Tokyo 2026 goal from Aug 4 → Aug 24. ~6 days at your pace · 2.5x your usual clothing spend. 120 kg CO₂e ≈ 670 km of driving. Your call."*
 
-1. **Take a photo** of something you're thinking of buying
-2. **Claude Sonnet vision** identifies the item + category
-3. **You confirm the price** (and category, if Claude got it wrong)
-4. **The card shows you**: how many days it delays your Tokyo 2026 goal, how it stacks up against your usual spend in that category, and the embodied carbon footprint with a relatable comparison
+## Tech highlights
 
-> Example: "This jacket: €300 — pushes your Tokyo goal from Aug 4 → Aug 24. 20 days. 2.5× your usual clothing spend. 120 kg CO₂e — that's ~670 km of driving. Your call."
+- **Multimodal vision** — Claude Sonnet 4.6 classifies arbitrary product photos into one of nine spend categories with structured-output JSON
+- **Agentic tool use** — Claude calls six custom tools (`get_savings_velocity`, `forecast_goal_impact`, `estimate_carbon`, …) that derive every number from the actual ledger; the model never makes up figures
+- **Signed bunq sandbox client** — full RSA handshake (installation → device-server → session-server) with persisted device tokens and PKCS#1 v1.5 request signing, written from scratch
+- **Three-layer fallback ladder** — live bunq → cached snapshot → frontend-local compute, so the demo runs end-to-end even without internet or API keys
+- **Pinned dependencies, deploys clean** — `requirements.txt` and `package-lock.json` lock everything to known-working versions; one-click deploy via `render.yaml` + Vercel
 
-## Stack
+## Try it locally (60 seconds)
 
-| Layer | Tech |
-|---|---|
-| Frontend | React 18 + Vite |
-| Backend | FastAPI (Python 3.11) |
-| Vision | Claude Sonnet 4.5 |
-| Bank data | bunq sandbox API (hybrid, with cached JSON fallback) |
-| Carbon model | Category emission factors (kg CO₂e per €) |
+You'll need Python 3.10+ and Node 18+.
 
-## Repo layout
-
+**Backend** (one terminal):
 ```
-.
-├── backend/              # FastAPI app
-│   ├── main.py           # endpoints + perspective math
-│   ├── bunq_client.py    # sandbox auth + payments
-│   ├── bunq_data.json    # cached snapshot (goal, velocity, category averages)
-│   ├── requirements.txt
-│   ├── Procfile          # for Railway / Render
-│   └── .env.example
-├── frontend/             # Vite + React
-│   ├── src/
-│   │   ├── App.jsx       # 3 screens: upload → price → result
-│   │   ├── api.js
-│   │   └── App.css
-│   ├── package.json
-│   └── vercel.json
-├── data/                 # one-off scripts (seed, top-up)
-├── render.yaml           # backend deploy config
-└── README.md
-```
-
-## Local quick start
-
-You'll need Python 3.11+ and Node 18+.
-
-### 1. Backend
-
-```bash
-cd backend
-python -m venv .venv && source .venv/bin/activate
+git clone https://github.com/emrewhiting/bunq-horizon.git
+cd bunq-horizon/backend
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# put your own ANTHROPIC_API_KEY in .env (BUNQ_API_KEY is optional)
 uvicorn main:app --reload --port 8000
 ```
 
-Sanity check:
-```bash
-curl http://localhost:8000/health
-# {"ok": true, "claude_enabled": true, "model": "claude-sonnet-4-5-20250929"}
+**Frontend** (second terminal):
 ```
-
-### 2. Frontend
-
-```bash
-cd frontend
+cd bunq-horizon/frontend
 npm install
-cp .env.example .env.local   # leave default if backend is on :8000
+cp .env.example .env.local
 npm run dev
 ```
 
-Open http://localhost:5173.
+Open `http://localhost:5173`.
 
-## Deploying
+> **No Anthropic key needed to try the flow.** Without one, the vision step falls back to a filename classifier — name your test image `jacket.jpg` or `coffee.jpg` and the rest of the pipeline (savings forecast, carbon, the whole card) runs identically. Drop a real key in `backend/.env` if you want true vision.
 
-### Backend → Render (free tier)
+## How the perspective is computed
 
-1. Push this repo to GitHub
-2. Render → New + → **Blueprint** → pick the repo (it auto-detects `render.yaml`)
-3. Add `ANTHROPIC_API_KEY` and `BUNQ_API_KEY` as environment variables in the Render dashboard
-4. Wait ~2 min for build → copy your `https://bunq-horizon-api-xxx.onrender.com` URL
-
-### Frontend → Vercel
-
-1. Vercel → New Project → import this repo
-2. **Root directory**: `frontend`
-3. Framework: Vite (auto-detected)
-4. Add env var `VITE_API_URL` = the Render URL from above
-5. Deploy
-
-## How the math works
-
-Three numbers feed every result, all sourced from `backend/bunq_data.json`:
+Three numbers feed every result, all derived from the ledger in `backend/bunq_data.json`:
 
 ```
-daily_velocity   = €15/day saved toward goal
-goal_date        = 2026-08-04
-category_avgs    = clothing €120, food €25, transport €41.50, entertainment €36
+daily_velocity   = (income − outflow) / 30 days
+goal_eta         = today + remaining_to_goal / daily_velocity
+category_avg     = mean(price) for prior purchases in that category
 ```
 
 - **Delay** = `ceil(price / daily_velocity)` days
-- **Ratio** = `price / category_avg`
-- **Carbon** = `price × category_factor` (factors below)
+- **Ratio** = `price / category_avg` (only shown if it's notably high or low)
+- **Carbon** = `price × category_factor`, mapped to a relatable equivalent (km of driving, beef burgers, tree-years)
 
-### Category emission factors (kg CO₂e per €1)
+Carbon factors are order-of-magnitude estimates from EU Exiobase / WWF lifestyle calculator ranges — defensible for a demo, not a peer-reviewed model.
 
-| Category | Factor | Source |
-|---|---|---|
-| clothing | 0.40 | Fast fashion textile chains |
-| food | 0.18 | Mixed groceries + dine-in |
-| transport | 0.45 | Mostly fuel/airfare |
-| entertainment | 0.10 | Subscriptions, low-emission |
-| electronics | 0.55 | Manufacturing-heavy |
-| home | 0.30 | |
-| beauty | 0.25 | |
-| other | 0.20 | |
+## Architecture
 
-These are order-of-magnitude figures derived from EU Exiobase / WWF lifestyle calculator ranges — defensible for a demo, not a peer-reviewed model.
-
-### Carbon equivalents
-
-We translate kg CO₂e into something visceral:
-
-| If kg CO₂e is… | We show… |
-|---|---|
-| < 5 | "X beef burgers worth of CO2" |
-| 5–30 | "X km of driving" |
-| > 30 | "X days of a tree's CO2 absorption" |
+```
+frontend (React + Vite, Tailwind)
+   │
+   ├─ /classify    image → vision (item + category)
+   ├─ /perspective price + category → Perspective Card
+   └─ /analyze     image + price → both, in one call
+   │
+backend (FastAPI)
+   ├─ vision.py        → Anthropic multimodal
+   ├─ agent.py         → Claude tool-use loop, builds the card
+   ├─ ledger.py        → derives velocity, baselines, ETAs, carbon
+   └─ bunq_client.py   → signed sandbox API client
+```
 
 ## API endpoints
-
-All endpoints are CORS-open for the demo.
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
@@ -147,24 +83,22 @@ All endpoints are CORS-open for the demo.
 | POST | `/perspective` | `{price, category, item?}` | full perspective payload |
 | POST | `/analyze` | multipart `image` + `price` | classification + perspective in one call |
 
-## Fallback ladder (so the demo never crashes)
+## Deploying
 
-Three layers, each picks up if the one above fails:
+**Backend → Render** (free tier): push to GitHub → New + → Blueprint → pick the repo (it auto-detects `render.yaml`) → set `ANTHROPIC_API_KEY` and `BUNQ_API_KEY` env vars → done.
 
-1. **Claude vision fails or no API key** → keyword classifier on filename
-2. **bunq sandbox unreachable** → cached `bunq_data.json` snapshot
-3. **Backend unreachable from frontend** → frontend computes perspective locally using the same formulas
+**Frontend → Vercel**: New Project → import the repo → Root directory: `frontend` → set `VITE_API_URL` to your Render URL → deploy.
 
-Even fully offline the flow still runs end-to-end, you just lose the AI item recognition.
+## Stack
 
-## Demo script (2-3 min)
-
-1. *Hook* — "What if your bank could show you what a purchase really costs your future self?" (10s)
-2. Open the app on phone, snap a photo of a coat in a store window (15s)
-3. Type €300 → tap "See impact" (10s)
-4. Read the card aloud: 20-day delay, 2.5× usual clothing spend, 120 kg CO₂e ≈ 670 km of driving (30s)
-5. Tap "I'll skip it" → reset → snap a coffee → €4.50 → tiny delay, "you're fine, treat yourself" (20s)
-6. *Why it matters* — bunq already has the data; this turns it into a moment of clarity right when it counts. (30s)
+| Layer | Tech |
+|---|---|
+| Frontend | React 18 + Vite + Tailwind |
+| Backend | FastAPI (Python 3.10+) |
+| Vision | Claude Sonnet 4.6 (multimodal) |
+| Agent | Claude tool-use loop |
+| Bank data | bunq sandbox API (live) + cached JSON (fallback) |
+| Carbon | Category emission factors (kg CO₂e per €) |
 
 ## Credits
 
@@ -178,6 +112,7 @@ MIT — see [LICENSE](./LICENSE).
 
 ## Notes
 
-Personal submission for bunq Hackathon 7.0. The cached `bunq_data.json`
-is fully synthetic (zeroed IDs, made-up transactions). Bring your own
-keys if you want to run it.
+Personal submission for bunq Hackathon 7.0. The cached `bunq_data.json` is
+fully synthetic (zeroed IDs, made-up transactions). No bunq-internal data,
+keys, or hackathon-confidential material ships with this repo. Bring your
+own keys to run it.
